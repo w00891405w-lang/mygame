@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rhythm Beat</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+:root {
+    --bg-color: #0a0a0c;
+    --primary-color: #00f0ff;
+    --secondary-color: #ff003c;
+    --text-main: #ffffff;
+    --text-dim: #a0a0a0;
+    --font-heading: 'Orbitron', sans-serif;
+    --font-body: 'Noto Sans TC', sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none; /* Prevent text selection during gameplay */
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    font-family: var(--font-body);
+    overflow: hidden; /* Prevent scrolling */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+#game-container {
+    position: relative;
+    width: 100%;
+    max-width: 480px; /* Mobile portrait aspect ratio */
+    height: 100vh;
+    max-height: 853px;
+    background-color: #111;
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+    overflow: hidden;
+}
+
+#game-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+#ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    pointer-events: none; /* Let clicks pass through by default */
+}
+
+.screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(10, 10, 12, 0.9);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    pointer-events: auto; /* Catch clicks when active */
+}
+
+.screen.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Headings */
+h1, h2 {
+    font-family: var(--font-heading);
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.game-title {
+    font-size: 3rem;
+    line-height: 1.1;
+    margin-bottom: 2rem;
+    text-shadow: 0 0 10px var(--primary-color);
+}
+
+.game-title .highlight {
+    color: var(--primary-color);
+    font-size: 4rem;
+}
+
+/* Buttons */
+.btn {
+    font-family: var(--font-heading);
+    background: transparent;
+    color: var(--text-main);
+    border: 2px solid var(--text-dim);
+    padding: 15px 30px;
+    font-size: 1.2rem;
+    margin: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    width: 80%;
+    max-width: 300px;
+}
+
+.btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--text-main);
+}
+
+.btn.primary {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+}
+
+.btn.primary:hover {
+    background: var(--primary-color);
+    color: #000;
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.6);
+}
+
+.btn.danger {
+    border-color: var(--secondary-color);
+    color: var(--secondary-color);
+}
+.btn.danger:hover {
+    background: var(--secondary-color);
+    color: #fff;
+}
+
+/* HUD */
+#game-hud {
+    background: transparent;
+    pointer-events: none; /* Let clicks pass to canvas */
+}
+
+#game-hud.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.top-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: auto;
+}
+
+.score-display {
+    font-family: var(--font-heading);
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.btn-icon {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 2rem;
+    cursor: pointer;
+}
+
+.combo-display {
+    position: absolute;
+    top: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.1s;
+}
+
+.combo-display.visible {
+    opacity: 1;
+}
+
+#combo-val {
+    font-family: var(--font-heading);
+    font-size: 4rem;
+    font-weight: 900;
+    color: var(--primary-color);
+    text-shadow: 0 0 15px var(--primary-color);
+}
+
+.combo-label {
+    font-family: var(--font-heading);
+    font-size: 1.2rem;
+    letter-spacing: 5px;
+}
+
+.judge-text {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: var(--font-heading);
+    font-size: 2.5rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    opacity: 0;
+}
+
+@keyframes popUp {
+    0% { opacity: 0; transform: translate(-50%, -40%) scale(0.8); }
+    20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+    100% { opacity: 0; transform: translate(-50%, -60%) scale(1); }
+}
+
+.judge-text.animate {
+    animation: popUp 0.5s ease-out;
+}
+
+.judge-perfect { color: #ffd700; text-shadow: 0 0 10px #ffd700; }
+.judge-great { color: #00f0ff; text-shadow: 0 0 10px #00f0ff; }
+.judge-good { color: #00ff00; text-shadow: 0 0 10px #00ff00; }
+.judge-miss { color: #ff003c; text-shadow: 0 0 10px #ff003c; }
+
+/* Overlay */
+.overlay {
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(5px);
+}
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <!-- Game Canvas -->
+        <canvas id="game-canvas"></canvas>
+
+        <!-- UI Overlay -->
+        <div id="ui-layer">
+            
+            <!-- Main Menu -->
+            <div id="main-menu" class="screen active">
+                <h1 class="game-title">RHYTHM<br><span class="highlight">BEAT</span></h1>
+                <div class="menu-buttons">
+                    <button id="btn-start" class="btn primary">START GAME</button>
+                    <button id="btn-leaderboard" class="btn">LEADERBOARD</button>
+                    <button id="btn-settings" class="btn">SETTINGS</button>
+                </div>
+            </div>
+
+            <!-- Song Selection -->
+            <div id="song-selection" class="screen">
+                <h2>SELECT SONG</h2>
+                <div id="song-list" class="list-container">
+                    <!-- Song items will be injected here -->
+                </div>
+                <div class="difficulty-selector">
+                    <button class="diff-btn" data-diff="Easy">EASY</button>
+                    <button class="diff-btn active" data-diff="Normal">NORMAL</button>
+                    <button class="diff-btn" data-diff="Hard">HARD</button>
+                </div>
+                <button id="btn-play" class="btn primary large">PLAY</button>
+                <button id="btn-back-menu" class="btn small">BACK</button>
+            </div>
+
+            <!-- Game HUD -->
+            <div id="game-hud" class="screen">
+                <div class="top-bar">
+                    <div class="score-display">SCORE: <span id="score-val">0000000</span></div>
+                    <button id="btn-pause" class="btn-icon">⏸</button>
+                </div>
+                <div class="combo-display">
+                    <div id="combo-val">0</div>
+                    <div class="combo-label">COMBO</div>
+                </div>
+                <div id="judge-display" class="judge-text"></div>
+            </div>
+
+            <!-- Result Screen -->
+            <div id="result-screen" class="screen">
+                <h2 class="result-title">STAGE CLEAR</h2>
+                <div class="rank-display">
+                    <div id="rank-val" class="rank-s">S</div>
+                </div>
+                <div class="stats-container">
+                    <div class="stat-row"><span>SCORE:</span><span id="res-score">0000000</span></div>
+                    <div class="stat-row"><span>MAX COMBO:</span><span id="res-max-combo">0</span></div>
+                    <div class="stat-row"><span>PERFECT:</span><span id="res-perfect">0</span></div>
+                    <div class="stat-row"><span>GREAT:</span><span id="res-great">0</span></div>
+                    <div class="stat-row"><span>GOOD:</span><span id="res-good">0</span></div>
+                    <div class="stat-row"><span>MISS:</span><span id="res-miss">0</span></div>
+                </div>
+                <button id="btn-result-ok" class="btn primary">CONTINUE</button>
+            </div>
+
+            <!-- Pause Menu -->
+            <div id="pause-menu" class="screen overlay">
+                <h2>PAUSED</h2>
+                <button id="btn-resume" class="btn primary">RESUME</button>
+                <button id="btn-quit" class="btn danger">QUIT</button>
+            </div>
+
+            <!-- Leaderboard Screen -->
+            <div id="leaderboard-screen" class="screen">
+                <h2>LEADERBOARD</h2>
+                <div class="stats-container" style="margin: 20px 0;">
+                    <div class="stat-row"><span>TOP SCORE:</span><span id="lb-top-score">0000000</span></div>
+                    <div class="stat-row"><span>RANK:</span><span id="lb-top-rank">-</span></div>
+                </div>
+                <button id="btn-back-lb" class="btn small">BACK</button>
+            </div>
+
+            <!-- Settings Screen -->
+            <div id="settings-screen" class="screen">
+                <h2>SETTINGS</h2>
+                <div style="margin: 20px 0; width: 80%; max-width: 300px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span>SCROLL SPEED</span>
+                        <span id="speed-val-display">1.0</span>
+                    </div>
+                    <input type="range" id="setting-speed" min="0.2" max="2.0" step="0.1" value="0.5" style="width: 100%;">
+                </div>
+                <button id="btn-back-settings" class="btn small">BACK</button>
+            </div>
+
+        </div>
+    </div>
+    
+    <script>
+// --- chart.js ---
+// Placeholder chart data
+class Chart {
+    constructor() {
+        this.notes = [];
+        this.bpm = 120;
+        this.generatePlaceholderChart();
+    }
+
+    generatePlaceholderChart() {
+        // Generate a simple 4-on-the-floor beat for 30 seconds
+        const beatInterval = (60 / this.bpm) * 1000; // ms per beat
+        
+        let currentTime = 1000; // Start at 1 second
+        
+        for (let i = 0; i < 60; i++) {
+            // Random track 0-3
+            const track = Math.floor(Math.random() * 4);
+            const randType = Math.random();
+            let type = 'tap';
+            let duration = 0;
+            let endTrack = track;
+            
+            if (randType > 0.8) {
+                type = 'hold';
+                duration = beatInterval; // hold for 1 beat
+            } else if (randType > 0.6) {
+                type = 'slide';
+                duration = beatInterval;
+                endTrack = (track + (Math.random() > 0.5 ? 1 : -1) + 4) % 4; // slide to adjacent track
+            }
+            
+            this.notes.push({
+                id: i,
+                type: type,
+                time: currentTime,
+                track: track,
+                endTrack: endTrack,
+                duration: duration,
+                hit: false,
+                missed: false,
+                holding: false,
+                completed: false
+            });
+            
+            // Add some variations (tap notes only)
+            if (i % 4 === 3 && type === 'tap') {
+                this.notes.push({
+                    id: i + '_extra',
+                    type: 'tap',
+                    time: currentTime + beatInterval / 2,
+                    track: (track + 2) % 4,
+                    hit: false,
+                    missed: false,
+                    holding: false,
+                    completed: false
+                });
+            }
+            
+            currentTime += beatInterval;
+        }
+    }
+
+    getNotes() {
+        return this.notes;
+    }
+}
+
+// --- audio.js ---
+class AudioController {
+    constructor() {
+        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        this.startTime = 0;
+        this.isPlaying = false;
+        this.bpm = 120;
+        this.nextNoteTime = 0;
+        this.current16thNote = 0;
+        this.timerID = null;
+    }
+
+    start() {
+        if (this.audioCtx.state === 'suspended') {
+            this.audioCtx.resume();
+        }
+        
+        this.isPlaying = true;
+        this.current16thNote = 0;
+        this.nextNoteTime = this.audioCtx.currentTime + 1.0; // Start delay
+        this.startTime = this.audioCtx.currentTime;
+        
+        this.scheduler();
+    }
+
+    stop() {
+        this.isPlaying = false;
+        clearTimeout(this.timerID);
+    }
+
+    getCurrentTimeMs() {
+        if (!this.isPlaying) return 0;
+        return (this.audioCtx.currentTime - this.startTime) * 1000;
+    }
+
+    playHitSound() {
+        // Simple synth hit sound
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        
+        osc.connect(gain);
+        gain.connect(this.audioCtx.destination);
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, this.audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(300, this.audioCtx.currentTime + 0.1);
+        
+        gain.gain.setValueAtTime(0.3, this.audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.audioCtx.currentTime + 0.1);
+        
+        osc.start(this.audioCtx.currentTime);
+        osc.stop(this.audioCtx.currentTime + 0.1);
+    }
+
+    // Schedule background metronome beat
+    nextNote() {
+        const secondsPerBeat = 60.0 / this.bpm;
+        this.nextNoteTime += 0.25 * secondsPerBeat; // 16th note
+        this.current16thNote++;
+        if (this.current16thNote === 16) {
+            this.current16thNote = 0;
+        }
+    }
+
+    playDrum(time) {
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        
+        osc.connect(gain);
+        gain.connect(this.audioCtx.destination);
+        
+        if (this.current16thNote % 4 === 0) {
+            // Kick drum
+            osc.frequency.setValueAtTime(150, time);
+            osc.frequency.exponentialRampToValueAtTime(40, time + 0.1);
+            gain.gain.setValueAtTime(0.5, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+        } else if (this.current16thNote % 4 === 2) {
+            // Snare-ish
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(250, time);
+            gain.gain.setValueAtTime(0.2, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+        }
+        
+        osc.start(time);
+        osc.stop(time + 0.1);
+    }
+
+    scheduler() {
+        while (this.nextNoteTime < this.audioCtx.currentTime + 0.1) {
+            this.playDrum(this.nextNoteTime);
+            this.nextNote();
+        }
+        if (this.isPlaying) {
+            this.timerID = setTimeout(() => this.scheduler(), 25);
+        }
+    }
+}
+
+// --- particles.js ---
+class ParticleSystem {
+    constructor() {
+        this.particles = [];
+    }
+    emit(x, y, color, count = 20) {
+        for(let i=0; i<count; i++) {
+            this.particles.push({
+                x: x, y: y,
+                vx: (Math.random() - 0.5) * 15,
+                vy: (Math.random() - 0.5) * 15,
+                life: 1.0,
+                color: color
+            });
+        }
+    }
+    update() {
+        for (let p of this.particles) {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life -= 0.03; // fade speed
+        }
+        this.particles = this.particles.filter(p => p.life > 0);
+    }
+    draw(ctx) {
+        ctx.globalCompositeOperation = 'lighter';
+        for (let p of this.particles) {
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = Math.max(0, p.life);
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1.0;
+        ctx.globalCompositeOperation = 'source-over';
+    }
+}
+
+// --- game.js ---
+class Game {
+    constructor(canvas, onGameEndCallback) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.onGameEnd = onGameEndCallback;
+        
+        this.isRunning = false;
+        this.isPaused = false;
+        
+        this.audio = new AudioController();
+        this.chart = null;
+        this.activeNotes = [];
+        this.particles = new ParticleSystem();
+        
+        // Game settings
+        this.scrollSpeed = parseFloat(localStorage.getItem('rb_speed')) || 0.5; 
+        this.judgeLineY = 0; // Set in resize
+        this.hitWindows = {
+            perfect: 60,  // ms
+            great: 100,
+            good: 150
+        };
+        
+        // State
+        this.score = 0;
+        this.combo = 0;
+        this.maxCombo = 0;
+        this.judges = { perfect: 0, great: 0, good: 0, miss: 0 };
+        
+        this.resize();
+        this._bindEvents();
+    }
+
+    resize() {
+        const container = this.canvas.parentElement;
+        this.canvas.width = container.clientWidth;
+        this.canvas.height = container.clientHeight;
+        this.judgeLineY = this.canvas.height * 0.8;
+    }
+
+    _bindEvents() {
+        this.pointerDownTracks = new Set();
+        
+        const getTrack = (x) => {
+            const rect = this.canvas.getBoundingClientRect();
+            const laneWidth = this.canvas.width / 4;
+            return Math.floor(x / laneWidth);
+        };
+        
+        this.canvas.addEventListener('pointerdown', (e) => {
+            if (!this.isRunning || this.isPaused) return;
+            const x = e.clientX - this.canvas.getBoundingClientRect().left;
+            const track = getTrack(x);
+            this.pointerDownTracks.add(track);
+            this.handleInputDown(track);
+        });
+        
+        this.canvas.addEventListener('pointerup', (e) => {
+            if (!this.isRunning || this.isPaused) return;
+            const x = e.clientX - this.canvas.getBoundingClientRect().left;
+            const track = getTrack(x);
+            this.pointerDownTracks.delete(track);
+            this.handleInputUp(track);
+        });
+        
+        this.canvas.addEventListener('pointermove', (e) => {
+            if (!this.isRunning || this.isPaused) return;
+            // Handle slide notes
+        });
+
+        // Keyboard support
+        const keyMap = { 'd': 0, 'f': 1, 'j': 2, 'k': 3 };
+        window.addEventListener('keydown', (e) => {
+            if (!this.isRunning || this.isPaused || e.repeat) return;
+            const track = keyMap[e.key.toLowerCase()];
+            if (track !== undefined) {
+                this.pointerDownTracks.add(track);
+                this.handleInputDown(track);
+            }
+        });
+        
+        window.addEventListener('keyup', (e) => {
+            if (!this.isRunning || this.isPaused) return;
+            const track = keyMap[e.key.toLowerCase()];
+            if (track !== undefined) {
+                this.pointerDownTracks.delete(track);
+                this.handleInputUp(track);
+            }
+        });
+    }
+
+    start() {
+        this.isRunning = true;
+        this.isPaused = false;
+        this.score = 0;
+        this.combo = 0;
+        this.maxCombo = 0;
+        this.judges = { perfect: 0, great: 0, good: 0, miss: 0 };
+        
+        this.chart = new Chart();
+        // Make a copy of notes to process
+        this.activeNotes = JSON.parse(JSON.stringify(this.chart.getNotes()));
+        
+        this.updateHUD();
+        this.audio.start();
+        
+        requestAnimationFrame(this.loop.bind(this));
+    }
+
+    pause() {
+        if (!this.isRunning) return;
+        this.isPaused = true;
+        this.audio.stop(); // Stop completely for this prototype (WebAudio pause is complex)
+    }
+
+    resume() {
+        if (!this.isRunning) return;
+        this.isPaused = false;
+        // For simplicity in prototype, we just restart audio time, in real app we'd resume
+        this.audio.start(); 
+        requestAnimationFrame(this.loop.bind(this));
+    }
+
+    stop() {
+        this.isRunning = false;
+        this.audio.stop();
+    }
+
+    endGame() {
+        this.isRunning = false;
+        this.audio.stop();
+        if (this.onGameEnd) {
+            this.onGameEnd({
+                score: this.score,
+                maxCombo: this.maxCombo,
+                judges: this.judges
+            });
+        }
+    }
+
+    handleInputDown(track) {
+        const currentTime = this.audio.getCurrentTimeMs();
+        let closestNote = null;
+        let minDiff = Infinity;
+        
+        for (let note of this.activeNotes) {
+            // Find note to hit that is not missed or completed
+            if (note.track === track && !note.hit && !note.missed && !note.completed) {
+                const diff = Math.abs(note.time - currentTime);
+                if (diff < this.hitWindows.good && diff < minDiff) {
+                    minDiff = diff;
+                    closestNote = note;
+                }
+            }
+        }
+        
+        if (closestNote) {
+            closestNote.hit = true;
+            this.audio.playHitSound();
+            
+            let judgeText = 'GOOD';
+            let color = '#00ff00';
+            if (minDiff <= this.hitWindows.perfect) {
+                judgeText = 'PERFECT';
+                color = '#ffd700';
+                this.judges.perfect++;
+                this.score += 300 + (this.combo * 10);
+            } else if (minDiff <= this.hitWindows.great) {
+                judgeText = 'GREAT';
+                color = '#00f0ff';
+                this.judges.great++;
+                this.score += 100 + (this.combo * 5);
+            } else {
+                this.judges.good++;
+                this.score += 50;
+            }
+            
+            this.combo++;
+            if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+            
+            this.showJudgeText(judgeText);
+            this.updateHUD();
+            
+            // Emit particles
+            const laneWidth = this.canvas.width / 4;
+            this.particles.emit(track * laneWidth + laneWidth/2, this.judgeLineY, color, 15);
+            
+            if (closestNote.type === 'hold' || closestNote.type === 'slide') {
+                closestNote.holding = true;
+            } else {
+                closestNote.completed = true;
+            }
+        }
+    }
+    
+    handleInputUp(track) {
+        const currentTime = this.audio.getCurrentTimeMs();
+        for (let note of this.activeNotes) {
+            if (note.holding) {
+                note.holding = false;
+                note.completed = true;
+                
+                // Check if released at the right time
+                const endTime = note.time + note.duration;
+                const diff = Math.abs(endTime - currentTime);
+                
+                if (diff <= this.hitWindows.great) {
+                    this.score += 200 + (this.combo * 5);
+                    this.combo++;
+                    this.showJudgeText('PERFECT'); // Finished hold perfectly
+                } else {
+                    this.judges.miss++;
+                    this.combo = 0;
+                    this.showJudgeText('MISS'); // Let go too early
+                }
+                this.updateHUD();
+            }
+        }
+    }
+
+    processMisses(currentTime) {
+        for (let note of this.activeNotes) {
+            if (!note.hit && !note.missed && !note.completed) {
+                // If it's a tap note missed
+                if (currentTime - note.time > this.hitWindows.good) {
+                    note.missed = true;
+                    note.completed = true;
+                    this.judges.miss++;
+                    this.combo = 0;
+                    this.showJudgeText('MISS');
+                    this.updateHUD();
+                }
+            } else if (note.holding && !note.completed) {
+                // If holding past the end time, auto complete it
+                const endTime = note.time + note.duration;
+                if (currentTime > endTime + this.hitWindows.good) {
+                    note.holding = false;
+                    note.completed = true;
+                    this.score += 200 + (this.combo * 5);
+                    this.combo++;
+                    this.showJudgeText('PERFECT');
+                    this.updateHUD();
+                }
+            }
+        }
+    }
+
+    showJudgeText(text) {
+        const judgeEl = document.getElementById('judge-display');
+        judgeEl.innerText = text;
+        judgeEl.className = 'judge-text animate judge-' + text.toLowerCase();
+        
+        judgeEl.style.animation = 'none';
+        judgeEl.offsetHeight; 
+        judgeEl.style.animation = null;
+    }
+
+    updateHUD() {
+        document.getElementById('score-val').innerText = this.score.toString().padStart(7, '0');
+        const comboEl = document.getElementById('combo-val');
+        const comboContainer = document.querySelector('.combo-display');
+        
+        if (this.combo > 0) {
+            comboEl.innerText = this.combo;
+            comboContainer.classList.add('visible');
+        } else {
+            comboContainer.classList.remove('visible');
+        }
+    }
+
+    loop() {
+        if (!this.isRunning || this.isPaused) return;
+        
+        this.update();
+        this.draw();
+        
+        requestAnimationFrame(this.loop.bind(this));
+    }
+
+    update() {
+        const currentTime = this.audio.getCurrentTimeMs();
+        this.processMisses(currentTime);
+        this.particles.update();
+        
+        // Remove notes that are way off screen or completed long ago
+        this.activeNotes = this.activeNotes.filter(note => {
+            const endTime = note.duration ? note.time + note.duration : note.time;
+            return !note.completed && (currentTime - endTime) < 1000;
+        });
+
+        // Check for end of song (simple check: no more notes and past last note time)
+        if (this.activeNotes.length === 0 && currentTime > 5000) {
+             this.endGame();
+        }
+    }
+
+    draw() {
+        this.ctx.fillStyle = 'rgba(10, 10, 12, 1)';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        const laneWidth = this.canvas.width / 4;
+        
+        // Draw lanes
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        this.ctx.lineWidth = 1;
+        for (let i = 1; i < 4; i++) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(i * laneWidth, 0);
+            this.ctx.lineTo(i * laneWidth, this.canvas.height);
+            this.ctx.stroke();
+        }
+        
+        // Draw judgment line receptors (targets)
+        const keys = ['D', 'F', 'J', 'K'];
+        for (let i = 0; i < 4; i++) {
+            const x = i * laneWidth;
+            this.ctx.strokeStyle = 'rgba(0, 240, 255, 0.5)';
+            this.ctx.lineWidth = 2;
+            this.ctx.strokeRect(x + 5, this.judgeLineY - 10, laneWidth - 10, 20);
+            
+            // Draw Key labels
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            this.ctx.font = '16px "Orbitron", sans-serif';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(keys[i], x + laneWidth / 2, this.judgeLineY + 30);
+        }
+        
+        // Draw judgment line
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, this.judgeLineY);
+        this.ctx.lineTo(this.canvas.width, this.judgeLineY);
+        this.ctx.strokeStyle = 'rgba(0, 240, 255, 0.8)';
+        this.ctx.lineWidth = 3;
+        this.ctx.shadowBlur = 10;
+        this.ctx.shadowColor = '#00f0ff';
+        this.ctx.stroke();
+        this.ctx.shadowBlur = 0;
+        
+        // Draw notes
+        const currentTime = this.audio.getCurrentTimeMs();
+        
+        for (let note of this.activeNotes) {
+            if (note.missed || note.completed) continue;
+            
+            // Calculate Y position
+            const timeDiff = note.time - currentTime;
+            const y = this.judgeLineY - (timeDiff * this.scrollSpeed);
+            const x = note.track * laneWidth;
+            
+            if (note.type === 'tap') {
+                if (y > -50 && y < this.canvas.height + 50 && !note.hit) {
+                    this.ctx.fillStyle = '#ff003c';
+                    this.ctx.shadowBlur = 15;
+                    this.ctx.shadowColor = '#ff003c';
+                    this.ctx.fillRect(x + 5, y - 10, laneWidth - 10, 20);
+                    
+                    this.ctx.fillStyle = '#fff';
+                    this.ctx.fillRect(x + 10, y - 5, laneWidth - 20, 10);
+                    this.ctx.shadowBlur = 0;
+                }
+            } else if (note.type === 'hold' || note.type === 'slide') {
+                const endY = this.judgeLineY - ((note.time + note.duration - currentTime) * this.scrollSpeed);
+                const endX = note.endTrack !== undefined ? note.endTrack * laneWidth : x;
+                
+                // Draw hold body
+                this.ctx.fillStyle = 'rgba(0, 255, 128, 0.4)'; // green transparent
+                if (note.type === 'slide') this.ctx.fillStyle = 'rgba(255, 0, 255, 0.4)'; // purple
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(x + 5, y);
+                this.ctx.lineTo(x + laneWidth - 5, y);
+                this.ctx.lineTo(endX + laneWidth - 5, endY);
+                this.ctx.lineTo(endX + 5, endY);
+                this.ctx.fill();
+                
+                // Draw head if not hit
+                if (!note.hit) {
+                    this.ctx.fillStyle = note.type === 'slide' ? '#ff00ff' : '#00ff80';
+                    this.ctx.shadowBlur = 15;
+                    this.ctx.shadowColor = this.ctx.fillStyle;
+                    this.ctx.fillRect(x + 5, y - 10, laneWidth - 10, 20);
+                    
+                    this.ctx.fillStyle = '#fff';
+                    this.ctx.fillRect(x + 10, y - 5, laneWidth - 20, 10);
+                    this.ctx.shadowBlur = 0;
+                } else if (note.holding) {
+                    // Draw active effect at judge line
+                    this.ctx.fillStyle = '#fff';
+                    this.ctx.shadowBlur = 20;
+                    this.ctx.shadowColor = '#fff';
+                    this.ctx.beginPath();
+                    this.ctx.arc(x + laneWidth/2, this.judgeLineY, 15, 0, Math.PI*2);
+                    this.ctx.fill();
+                    this.ctx.shadowBlur = 0;
+                }
+            }
+        }
+    }
+}
+
+// --- main.js ---
+document.addEventListener('DOMContentLoaded', () => {
+    // UI Elements
+    const screens = {
+        mainMenu: document.getElementById('main-menu'),
+        songSelection: document.getElementById('song-selection'),
+        gameHud: document.getElementById('game-hud'),
+        resultScreen: document.getElementById('result-screen'),
+        pauseMenu: document.getElementById('pause-menu'),
+        leaderboardScreen: document.getElementById('leaderboard-screen'),
+        settingsScreen: document.getElementById('settings-screen')
+    };
+
+    const canvas = document.getElementById('game-canvas');
+    let game = new Game(canvas, onGameEnd);
+
+    // Screen navigation helper
+    function showScreen(screenName) {
+        Object.values(screens).forEach(s => {
+            if (s) s.classList.remove('active');
+        });
+        if (screens[screenName]) {
+            screens[screenName].classList.add('active');
+        }
+    }
+
+    // Main Menu Buttons
+    document.getElementById('btn-start').addEventListener('click', () => {
+        showScreen('songSelection');
+    });
+
+    document.getElementById('btn-leaderboard').addEventListener('click', () => {
+        // Load from local storage
+        const topScore = localStorage.getItem('rb_top_score') || '0000000';
+        const topRank = localStorage.getItem('rb_top_rank') || '-';
+        document.getElementById('lb-top-score').innerText = topScore.toString().padStart(7, '0');
+        document.getElementById('lb-top-rank').innerText = topRank;
+        showScreen('leaderboard-screen');
+    });
+
+    document.getElementById('btn-back-lb').addEventListener('click', () => {
+        showScreen('mainMenu');
+    });
+
+    document.getElementById('btn-settings').addEventListener('click', () => {
+        const speed = localStorage.getItem('rb_speed') || '0.5';
+        document.getElementById('setting-speed').value = speed;
+        document.getElementById('speed-val-display').innerText = speed;
+        showScreen('settings-screen');
+    });
+
+    document.getElementById('setting-speed').addEventListener('input', (e) => {
+        document.getElementById('speed-val-display').innerText = e.target.value;
+        localStorage.setItem('rb_speed', e.target.value);
+        game.scrollSpeed = parseFloat(e.target.value);
+    });
+
+    document.getElementById('btn-back-settings').addEventListener('click', () => {
+        showScreen('mainMenu');
+    });
+
+    // Song Selection Buttons
+    document.getElementById('btn-back-menu').addEventListener('click', () => {
+        showScreen('mainMenu');
+    });
+
+    document.getElementById('btn-play').addEventListener('click', () => {
+        showScreen('gameHud');
+        game.start();
+    });
+
+    // Game HUD Buttons
+    document.getElementById('btn-pause').addEventListener('click', () => {
+        game.pause();
+        screens.pauseMenu.classList.add('active');
+    });
+
+    // Pause Menu Buttons
+    document.getElementById('btn-resume').addEventListener('click', () => {
+        screens.pauseMenu.classList.remove('active');
+        game.resume();
+    });
+
+    document.getElementById('btn-quit').addEventListener('click', () => {
+        game.stop();
+        screens.pauseMenu.classList.remove('active');
+        showScreen('mainMenu');
+    });
+
+    // Result Screen Buttons
+    document.getElementById('btn-result-ok').addEventListener('click', () => {
+        showScreen('mainMenu');
+    });
+
+    // Game end callback
+    function onGameEnd(stats) {
+        document.getElementById('res-score').innerText = stats.score.toString().padStart(7, '0');
+        document.getElementById('res-max-combo').innerText = stats.maxCombo;
+        document.getElementById('res-perfect').innerText = stats.judges.perfect;
+        document.getElementById('res-great').innerText = stats.judges.great;
+        document.getElementById('res-good').innerText = stats.judges.good;
+        document.getElementById('res-miss').innerText = stats.judges.miss;
+        
+        let rank = 'C';
+        const totalNotes = stats.judges.perfect + stats.judges.great + stats.judges.good + stats.judges.miss;
+        if (totalNotes > 0) {
+            const accuracy = (stats.judges.perfect + stats.judges.great * 0.8 + stats.judges.good * 0.5) / totalNotes;
+            if (accuracy >= 0.95) rank = 'S';
+            else if (accuracy >= 0.85) rank = 'A';
+            else if (accuracy >= 0.70) rank = 'B';
+        }
+        
+        const rankEl = document.getElementById('rank-val');
+        rankEl.innerText = rank;
+        rankEl.className = `rank-${rank.toLowerCase()}`;
+        
+        // Save to local storage if high score
+        const currentTop = parseInt(localStorage.getItem('rb_top_score') || '0', 10);
+        if (stats.score > currentTop) {
+            localStorage.setItem('rb_top_score', stats.score.toString());
+            localStorage.setItem('rb_top_rank', rank);
+        }
+
+        showScreen('resultScreen');
+    }
+
+    // Handle Resize
+    window.addEventListener('resize', () => {
+        game.resize();
+    });
+});
+    </script>
+</body>
+</html>
